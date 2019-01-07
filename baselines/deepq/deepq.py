@@ -238,6 +238,7 @@ def learn(env,
     update_target()
 
     episode_rewards = [0.0]
+    episode_steps = []
     saved_mean_reward = None
     obs = env.reset()
     reset = True
@@ -256,7 +257,7 @@ def learn(env,
             load_variables(load_path)
             logger.log('Loaded model from {}'.format(load_path))
 
-
+        steps = 0
         for t in range(total_timesteps):
             if callback is not None:
                 if callback(locals(), globals()):
@@ -280,6 +281,7 @@ def learn(env,
             env_action = action
             reset = False
             new_obs, rew, done, _ = env.step(env_action)
+            steps += 1
             # Store transition in the replay buffer.
             replay_buffer.add(obs, action, rew, new_obs, float(done))
             obs = new_obs
@@ -288,6 +290,8 @@ def learn(env,
             if done:
                 obs = env.reset()
                 episode_rewards.append(0.0)
+                episode_steps.append(steps)
+                steps = 0
                 reset = True
 
             if t > learning_starts and t % train_freq == 0:
@@ -308,11 +312,14 @@ def learn(env,
                 update_target()
 
             mean_100ep_reward = round(np.mean(episode_rewards[-101:-1]), 1)
+            mean_100ep_steps = round(np.mean(episode_steps[-101:-1]), 1)
+
             num_episodes = len(episode_rewards)
             if done and print_freq is not None and len(episode_rewards) % print_freq == 0:
                 logger.record_tabular("steps", t)
                 logger.record_tabular("episodes", num_episodes)
                 logger.record_tabular("mean 100 episode reward", mean_100ep_reward)
+                logger.record_tabular("mean 100 episode steps", mean_100ep_steps)
                 logger.record_tabular("% time spent exploring", int(100 * exploration.value(t)))
                 logger.dump_tabular()
 
